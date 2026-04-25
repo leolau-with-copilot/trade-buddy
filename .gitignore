@@ -1,0 +1,29 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local environment files
+.env
+.env.*
+
+# Tooling / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Runtime / outputs
+outputs/*
+!outputs/.gitkeep
+*.log
+
+# Build / test artifacts
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
