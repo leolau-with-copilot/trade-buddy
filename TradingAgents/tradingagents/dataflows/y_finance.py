@@ -55,6 +55,7 @@ def get_stock_stats_indicators_window(
         str, "The current trading date you are trading on, YYYY-mm-dd"
     ],
     look_back_days: Annotated[int, "how many days to look back"],
+    loader=load_ohlcv,
 ) -> str:
 
     best_ind_params = {
@@ -141,7 +142,7 @@ def get_stock_stats_indicators_window(
 
     # Optimized: Get stock data once and calculate indicators for all dates
     try:
-        indicator_data = _get_stock_stats_bulk(symbol, indicator, curr_date)
+        indicator_data = _get_stock_stats_bulk(symbol, indicator, curr_date, loader=loader)
         
         # Generate the date range we need
         current_dt = curr_date_dt
@@ -174,7 +175,7 @@ def get_stock_stats_indicators_window(
         curr_date_dt = datetime.strptime(curr_date, "%Y-%m-%d")
         while curr_date_dt >= before:
             indicator_value = get_stockstats_indicator(
-                symbol, indicator, curr_date_dt.strftime("%Y-%m-%d")
+                symbol, indicator, curr_date_dt.strftime("%Y-%m-%d"), loader=loader
             )
             ind_string += f"{curr_date_dt.strftime('%Y-%m-%d')}: {indicator_value}\n"
             curr_date_dt = curr_date_dt - relativedelta(days=1)
@@ -192,7 +193,8 @@ def get_stock_stats_indicators_window(
 def _get_stock_stats_bulk(
     symbol: Annotated[str, "ticker symbol of the company"],
     indicator: Annotated[str, "technical indicator to calculate"],
-    curr_date: Annotated[str, "current date for reference"]
+    curr_date: Annotated[str, "current date for reference"],
+    loader=load_ohlcv,
 ) -> dict:
     """
     Optimized bulk calculation of stock stats indicators.
@@ -201,7 +203,7 @@ def _get_stock_stats_bulk(
     """
     from stockstats import wrap
 
-    data = load_ohlcv(symbol, curr_date)
+    data = loader(symbol, curr_date)
     df = wrap(data)
     df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
     
@@ -229,6 +231,7 @@ def get_stockstats_indicator(
     curr_date: Annotated[
         str, "The current trading date you are trading on, YYYY-mm-dd"
     ],
+    loader=load_ohlcv,
 ) -> str:
 
     curr_date_dt = datetime.strptime(curr_date, "%Y-%m-%d")
@@ -239,6 +242,7 @@ def get_stockstats_indicator(
             symbol,
             indicator,
             curr_date,
+            loader=loader,
         )
     except Exception as e:
         print(
@@ -424,3 +428,31 @@ def get_insider_transactions(
         
     except Exception as e:
         return f"Error retrieving insider transactions for {ticker}: {str(e)}"
+
+
+def get_institutional_holders(
+    ticker: Annotated[str, "ticker symbol of the company"]
+):
+    """Institutional ('whale') 13F holders and ownership breakdown from yfinance.
+
+    Surfaces which large funds/asset managers hold the stock and the % held by
+    institutions vs insiders — the "smart-money holdings" view.
+    """
+    try:
+        ticker_obj = yf.Ticker(ticker.upper())
+        inst = yf_retry(lambda: ticker_obj.institutional_holders)
+        major = yf_retry(lambda: ticker_obj.major_holders)
+
+        out = [f"# Institutional (13F) holders for {ticker.upper()}",
+               f"# Retrieved {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"]
+        if major is not None and not major.empty:
+            out.append("## Ownership breakdown")
+            out.append(major.to_csv())
+        if inst is not None and not inst.empty:
+            out.append("## Top institutional holders")
+            out.append(inst.to_csv())
+        if len(out) <= 2:
+            return f"No institutional-holdings data found for '{ticker}'"
+        return "\n".join(out)
+    except Exception as e:
+        return f"Error retrieving institutional holders for {ticker}: {str(e)}"

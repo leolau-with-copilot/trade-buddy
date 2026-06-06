@@ -1,0 +1,187 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary:    #05080f;
+  --bg-secondary:  #080d16;
+  --bg-card:       #0b1018;
+  --bg-hover:      #0f1520;
+  --bg-elevated:   #111927;
+  --border:        #162030;
+  --border-light:  #1e2d42;
+  --border-accent: #2a3f5f;
+  --text-primary:  #dce8f5;
+  --text-secondary:#7a94b0;
+  --text-muted:    #374f68;
+  --green:         #00e5a0;
+  --green-dim:     rgba(0,229,160,0.12);
+  --red:           #ff3b3b;
+  --red-dim:       rgba(255,59,59,0.12);
+  --gold:          #f5a623;
+  --gold-dim:      rgba(245,166,35,0.12);
+  --blue:          #4b9eff;
+  --blue-dim:      rgba(75,158,255,0.12);
+  --purple:        #a855f7;
+  --amber:         #ff8c00;
+  --cyan:          #00d4ff;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  height: 100%;
+  font-size: 13px;
+}
+
+/* ── scrollbar ─────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 2px; }
+
+/* ── typography utilities ───────────────────────────────────── */
+.num { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+.gradient-text {
+  background: linear-gradient(135deg, #00e5a0 0%, #4b9eff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── card system ────────────────────────────────────────────── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: border-color 0.15s;
+}
+.card:hover { border-color: var(--border-light); }
+
+.card-terminal {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  position: relative;
+}
+.card-terminal::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0,229,160,0.02) 0%, transparent 40%);
+}
+
+/* ── bloomberg-style section header ────────────────────────── */
+.bb-header {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--green);
+  border-bottom: 1px solid var(--border);
+  padding: 6px 12px;
+  background: rgba(0,229,160,0.03);
+}
+
+/* ── stat block ─────────────────────────────────────────────── */
+.stat-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stat-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.stat-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+.stat-sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* ── tags ───────────────────────────────────────────────────── */
+.tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 7px; border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.tag-buy  { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,229,160,0.2); }
+.tag-sell { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(255,59,59,0.2); }
+.tag-hold { background: var(--gold-dim);  color: var(--gold);  border: 1px solid rgba(245,166,35,0.2); }
+.tag-call { background: var(--blue-dim);  color: var(--blue);  border: 1px solid rgba(75,158,255,0.2); }
+
+/* ── live pulse dot ─────────────────────────────────────────── */
+.pulse-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: pulse-anim 2s infinite;
+}
+@keyframes pulse-anim {
+  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 6px var(--green); }
+  50% { opacity: 0.6; transform: scale(0.85); box-shadow: 0 0 2px var(--green); }
+}
+
+/* ── table system ───────────────────────────────────────────── */
+.bb-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.bb-table th {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-muted); padding: 8px 12px;
+  border-bottom: 1px solid var(--border); text-align: left;
+  background: var(--bg-secondary);
+}
+.bb-table td {
+  padding: 7px 12px; border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+.bb-table tr:hover td { background: var(--bg-hover); }
+.bb-table tr:last-child td { border-bottom: none; }
+
+/* ── chart tooltip ──────────────────────────────────────────── */
+.bb-tooltip {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 4px !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 11px !important;
+  color: var(--text-primary) !important;
+  padding: 8px 12px !important;
+}
+
+/* ── mini bar ───────────────────────────────────────────────── */
+.mini-bar-track {
+  height: 3px; border-radius: 2px; background: var(--border);
+  overflow: hidden; margin-top: 3px;
+}
+.mini-bar-fill {
+  height: 100%; border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+/* ── flash animation for live updates ──────────────────────── */
+@keyframes flash-green {
+  0% { background: rgba(0,229,160,0.15); }
+  100% { background: transparent; }
+}
+.flash { animation: flash-green 0.6s ease-out; }

@@ -36,6 +36,12 @@ def _build_context(ctx: RunContext, reports: Dict[str, str], opponent_case: Opti
         "News report:\n" + (reports.get("news_report") or "n/a"),
         "Sentiment report:\n" + (reports.get("sentiment_report") or "n/a"),
     ]
+    if reports.get("smart_money_report"):
+        parts.append("Smart-money flow report (insiders/congress/institutions):\n"
+                     + reports["smart_money_report"])
+    if reports.get("macro_report"):
+        parts.append("Macro backdrop report (rates/inflation/growth/labor/risk):\n"
+                     + reports["macro_report"])
     if ctx.past_context:
         parts.append("Lessons from prior decisions:\n" + ctx.past_context)
     if opponent_case:

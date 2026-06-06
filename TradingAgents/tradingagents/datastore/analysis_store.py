@@ -72,8 +72,22 @@ CREATE TABLE IF NOT EXISTS winrate_cache (
     avg_forward_return REAL,
     PRIMARY KEY (ticker, signal, as_of_date, horizon_days, lookback_years)
 );
+-- Conversation log: every message exchanged with Trade Buddy, on any channel
+-- (the dashboard chat, or the 'clawbot' transmission path). The analyst agent
+-- reads this back so it remembers prior turns across stateless HTTP requests.
+CREATE TABLE IF NOT EXISTS conversations (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    channel     TEXT NOT NULL,        -- 'clawbot', 'dashboard', …
+    session_id  TEXT,                 -- caller-supplied conversation id
+    role        TEXT NOT NULL,        -- 'user' | 'assistant'
+    ticker      TEXT,                 -- optional symbol the turn is about
+    content     TEXT NOT NULL,
+    created_at  TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_analyses_ticker ON analyses(ticker);
 CREATE INDEX IF NOT EXISTS idx_signals_signal ON signals(signal);
+CREATE INDEX IF NOT EXISTS idx_conv_session ON conversations(session_id);
+CREATE INDEX IF NOT EXISTS idx_conv_channel ON conversations(channel);
 """
 
 
@@ -261,6 +275,69 @@ class AnalysisStore:
                 (ticker, signal, as_of_date, horizon_days, lookback_years,
                  hit_rate, n_occurrences, avg_forward_return),
             )
+
+    # --- conversation log ----------------------------------------------------
+
+    def record_message(
+        self, *, channel: str, role: str, content: str,
+        session_id: Optional[str] = None, ticker: Optional[str] = None,
+    ) -> int:
+        """Append one chat turn to the conversation log. Returns its row id."""
+        with self._conn() as conn:
+            cur = conn.execute(
+                "INSERT INTO conversations (channel, session_id, role, ticker, "
+                "content, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (channel, session_id, role,
+                 (ticker or None) and ticker.upper(), content, self._now()),
+            )
+            return int(cur.lastrowid)
+
+    def recent_messages(
+        self, *, session_id: Optional[str] = None,
+        channel: Optional[str] = None, limit: int = 20,
+    ) -> List[dict]:
+        """Most recent turns (oldest→newest), optionally scoped to a session/channel."""
+        clauses, params = [], []
+        if session_id:
+            clauses.append("session_id = ?")
+            params.append(session_id)
+        if channel:
+            clauses.append("channel = ?")
+            params.append(channel)
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        params.append(int(limit))
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT channel, session_id, role, ticker, content, created_at "
+                "FROM conversations" + where +
+                " ORDER BY id DESC LIMIT ?", params,
+            ).fetchall()
+        return [dict(r) for r in reversed(rows)]
+
+    def search_messages(self, query: str, limit: int = 20) -> List[dict]:
+        """Full-text-ish search of the conversation log (substring match)."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT channel, session_id, role, ticker, content, created_at "
+                "FROM conversations WHERE content LIKE ? "
+                "ORDER BY id DESC LIMIT ?",
+                (f"%{query}%", int(limit)),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def conversation_sessions(self, channel: Optional[str] = None, limit: int = 30) -> List[dict]:
+        """Distinct sessions with their turn count and last-activity timestamp."""
+        clause = " WHERE channel = ?" if channel else ""
+        params = ([channel] if channel else []) + [int(limit)]
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT session_id, channel, COUNT(*) AS turns, "
+                "MAX(created_at) AS last_at, MAX(ticker) AS ticker "
+                "FROM conversations" + clause +
+                " GROUP BY session_id, channel ORDER BY last_at DESC LIMIT ?",
+                params,
+            ).fetchall()
+        return [dict(r) for r in rows]
 
 
 def _to_text(value) -> Optional[str]:

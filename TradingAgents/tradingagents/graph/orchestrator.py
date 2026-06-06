@@ -49,6 +49,8 @@ class AnalysisResult:
     fundamentals_report: str = ""
     news_report: str = ""
     sentiment_report: str = ""
+    smart_money_report: str = ""
+    macro_report: str = ""
     bull_case: Optional[BullCase] = None
     bull_case_md: str = ""
     bear_case: Optional[BearCase] = None
@@ -73,6 +75,8 @@ class AnalysisResult:
             "fundamentals_report": self.fundamentals_report,
             "news_report": self.news_report,
             "sentiment_report": self.sentiment_report,
+            "smart_money_report": self.smart_money_report,
+            "macro_report": self.macro_report,
             "bull_case_md": self.bull_case_md,
             "bear_case_md": self.bear_case_md,
             "debate_md": self.debate_md,

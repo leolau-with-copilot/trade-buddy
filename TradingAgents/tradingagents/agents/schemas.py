@@ -25,6 +25,78 @@ from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
+# Localized report-scaffolding labels
+# ---------------------------------------------------------------------------
+# The render_* helpers below emit fixed markdown labels (e.g. "**Rating**:",
+# "Scoreboard", table headers). These bypass the LLM, so without translating
+# them a non-English run still shows English scaffolding in the saved report —
+# exactly the "English in the final report" leakage we want to eliminate. The
+# rating VALUE (Buy/Hold/…) stays English on purpose: it is a standardized
+# vocabulary and ``parse_rating``'s fallback still finds it regardless of label.
+
+_LABELS = {
+    "Simplified Chinese": {
+        "Bull Thesis": "看涨论点", "Bear Thesis": "看跌论点", "conviction": "信心",
+        "Key points": "要点", "Reasoning paths": "推理路径",
+        "Self-correction": "自我修正", "Concedes": "认同", "Counters": "反驳",
+        "round": "回合", "claimed": "宣称", "Rating": "评级",
+        "Cited signals": "引用的信号", "backtest": "回测",
+        "Weighted Score": "加权评分", "Scoreboard": "评分表",
+        "Metric": "指标", "Source": "来源", "Value": "数值", "Weight": "权重",
+        "Score": "得分", "Note": "说明", "Data Verification": "数据核实",
+        "Intuition Feasibility": "直觉可行性", "Verdict": "结论",
+        "Price Target": "目标价", "Time Horizon": "持有期限",
+        "Debate outcome — consensus reached": "辩论结果 — 已达成共识",
+        "Debate outcome — no consensus; the Judge decides": "辩论结果 — 未达成共识；由裁判定夺",
+        "Agreed sub-points (to the Judge):": "一致同意的要点（提交裁判）：",
+        "Unresolved disagreements:": "未解决的分歧：",
+    },
+    "Traditional Chinese": {
+        "Bull Thesis": "看漲論點", "Bear Thesis": "看跌論點", "conviction": "信心",
+        "Key points": "要點", "Reasoning paths": "推理路徑",
+        "Self-correction": "自我修正", "Concedes": "認同", "Counters": "反駁",
+        "round": "回合", "claimed": "宣稱", "Rating": "評級",
+        "Cited signals": "引用的訊號", "backtest": "回測",
+        "Weighted Score": "加權評分", "Scoreboard": "評分表",
+        "Metric": "指標", "Source": "來源", "Value": "數值", "Weight": "權重",
+        "Score": "得分", "Note": "說明", "Data Verification": "數據核實",
+        "Intuition Feasibility": "直覺可行性", "Verdict": "結論",
+        "Price Target": "目標價", "Time Horizon": "持有期限",
+        "Debate outcome — consensus reached": "辯論結果 — 已達成共識",
+        "Debate outcome — no consensus; the Judge decides": "辯論結果 — 未達成共識；由裁判定奪",
+        "Agreed sub-points (to the Judge):": "一致同意的要點（提交裁判）：",
+        "Unresolved disagreements:": "未解決的分歧：",
+    },
+    "French": {
+        "Bull Thesis": "Thèse haussière", "Bear Thesis": "Thèse baissière",
+        "conviction": "conviction", "Key points": "Points clés",
+        "Reasoning paths": "Chemins de raisonnement",
+        "Self-correction": "Autocorrection", "Concedes": "Concède",
+        "Counters": "Réfute", "round": "tour", "claimed": "annoncé",
+        "Cited signals": "Signaux cités", "backtest": "backtest",
+        "Rating": "Notation", "Weighted Score": "Score pondéré",
+        "Scoreboard": "Tableau de scores", "Metric": "Métrique",
+        "Source": "Source", "Value": "Valeur", "Weight": "Poids",
+        "Score": "Score", "Note": "Note", "Data Verification": "Vérification des données",
+        "Intuition Feasibility": "Faisabilité de l'intuition", "Verdict": "Verdict",
+        "Price Target": "Objectif de cours", "Time Horizon": "Horizon temporel",
+        "Debate outcome — consensus reached": "Issue du débat — consensus atteint",
+        "Debate outcome — no consensus; the Judge decides": "Issue du débat — pas de consensus ; le Juge tranche",
+        "Agreed sub-points (to the Judge):": "Sous-points convenus (au Juge) :",
+        "Unresolved disagreements:": "Désaccords non résolus :",
+    },
+}
+
+
+def _t(label: str) -> str:
+    """Translate a fixed report label into the configured output language."""
+    from tradingagents.dataflows.config import get_config
+
+    lang = get_config().get("output_language", "English")
+    return _LABELS.get(lang, {}).get(label, label)
+
+
+# ---------------------------------------------------------------------------
 # Shared rating types
 # ---------------------------------------------------------------------------
 
@@ -312,15 +384,15 @@ class BearCase(BaseModel):
 def _render_signals(signals: list[SignalClaim]) -> list[str]:
     if not signals:
         return []
-    lines = ["", "**Cited signals**:"]
+    lines = ["", f"**{_t('Cited signals')}**:"]
     for s in signals:
         bt = (
-            f", backtest {s.backtest_winrate:.0%}"
-            f"{f' over {s.n_occurrences}×' if s.n_occurrences else ''}"
+            f", {_t('backtest')} {s.backtest_winrate:.0%}"
+            f"{f' ×{s.n_occurrences}' if s.n_occurrences else ''}"
             if s.backtest_winrate is not None else ""
         )
         lines.append(
-            f"- `{s.signal}` (claimed {s.claimed_winrate:.0%}{bt}): {s.rationale}"
+            f"- `{s.signal}` ({_t('claimed')} {s.claimed_winrate:.0%}{bt}): {s.rationale}"
         )
     return lines
 
@@ -328,26 +400,26 @@ def _render_signals(signals: list[SignalClaim]) -> list[str]:
 def render_bull_case(case: BullCase) -> str:
     """Render a BullCase to markdown for the Judge's context and saved reports."""
     parts = [
-        f"**Bull Thesis** (conviction {case.conviction:.0%}): {case.thesis}",
+        f"**{_t('Bull Thesis')}** ({_t('conviction')} {case.conviction:.0%}): {case.thesis}",
         "",
-        "**Key points**:",
+        f"**{_t('Key points')}**:",
         *[f"- {p}" for p in case.key_points],
     ]
     parts += _render_signals(case.signals)
-    parts += ["", f"**Reasoning paths**: {case.tot_summary}"]
+    parts += ["", f"**{_t('Reasoning paths')}**: {case.tot_summary}"]
     return "\n".join(parts)
 
 
 def render_bear_case(case: BearCase) -> str:
     """Render a BearCase to markdown for the Judge's context and saved reports."""
     parts = [
-        f"**Bear Thesis** (conviction {case.conviction:.0%}): {case.thesis}",
+        f"**{_t('Bear Thesis')}** ({_t('conviction')} {case.conviction:.0%}): {case.thesis}",
         "",
-        "**Key points**:",
+        f"**{_t('Key points')}**:",
         *[f"- {p}" for p in case.key_points],
     ]
     parts += _render_signals(case.signals)
-    parts += ["", f"**Reasoning paths**: {case.tot_summary}"]
+    parts += ["", f"**{_t('Reasoning paths')}**: {case.tot_summary}"]
     return "\n".join(parts)
 
 
@@ -383,14 +455,14 @@ class DebateSpeech(BaseModel):
 
 def render_debate_speech(side: str, round_no: int, sp: DebateSpeech) -> str:
     """Render one debate turn to markdown."""
-    parts = [f"**{side} — round {round_no}**", ""]
+    parts = [f"**{side} — {_t('round')} {round_no}**", ""]
     sc = (sp.self_correction or "").strip()
     if sc and sc.lower() not in ("none", "no correction needed.", "n/a"):
-        parts += [f"*Self-correction*: {sc}", ""]
+        parts += [f"*{_t('Self-correction')}*: {sc}", ""]
     if sp.concessions:
-        parts += ["*Concedes*:", *[f"- {c}" for c in sp.concessions], ""]
+        parts += [f"*{_t('Concedes')}*:", *[f"- {c}" for c in sp.concessions], ""]
     if sp.counters:
-        parts += ["*Counters*:", *[f"- {c}" for c in sp.counters]]
+        parts += [f"*{_t('Counters')}*:", *[f"- {c}" for c in sp.counters]]
     return "\n".join(parts).rstrip()
 
 
@@ -416,15 +488,15 @@ class DebateOutcome(BaseModel):
 def render_debate_outcome(o: DebateOutcome) -> str:
     """Render the debate's consensus result to markdown."""
     if o.consensus_reached:
-        parts = ["**Debate outcome — consensus reached** ✓", ""]
+        parts = [f"**{_t('Debate outcome — consensus reached')}** ✓", ""]
         if o.consensus_summary:
             parts += [o.consensus_summary, ""]
         if o.sub_points:
-            parts += ["**Agreed sub-points (to the Judge):**", *[f"- {p}" for p in o.sub_points]]
+            parts += [f"**{_t('Agreed sub-points (to the Judge):')}**", *[f"- {p}" for p in o.sub_points]]
     else:
-        parts = ["**Debate outcome — no consensus; the Judge decides** ⚖️", ""]
+        parts = [f"**{_t('Debate outcome — no consensus; the Judge decides')}** ⚖️", ""]
         if o.remaining_disagreements:
-            parts += ["**Unresolved disagreements:**",
+            parts += [f"**{_t('Unresolved disagreements:')}**",
                       *[f"- {d}" for d in o.remaining_disagreements]]
     return "\n".join(parts).rstrip()
 
@@ -507,13 +579,13 @@ def render_judge_verdict(verdict: JudgeVerdict) -> str:
     working unchanged.
     """
     parts = [
-        f"**Rating**: {verdict.rating.value}",
+        f"**{_t('Rating')}**: {verdict.rating.value}",
         "",
-        f"**Weighted Score**: {verdict.weighted_score:+.2f}",
+        f"**{_t('Weighted Score')}**: {verdict.weighted_score:+.2f}",
         "",
-        "**Scoreboard**:",
+        f"**{_t('Scoreboard')}**:",
         "",
-        "| Metric | Source | Value | Weight | Score | Note |",
+        f"| {_t('Metric')} | {_t('Source')} | {_t('Value')} | {_t('Weight')} | {_t('Score')} | {_t('Note')} |",
         "| --- | --- | --- | --- | --- | --- |",
     ]
     for e in verdict.scoreboard:
@@ -524,16 +596,16 @@ def render_judge_verdict(verdict: JudgeVerdict) -> str:
         )
     parts += [
         "",
-        f"**Data Verification**: {verdict.data_verification}",
+        f"**{_t('Data Verification')}**: {verdict.data_verification}",
         "",
-        f"**Intuition Feasibility**: {verdict.intuition_feasibility}",
+        f"**{_t('Intuition Feasibility')}**: {verdict.intuition_feasibility}",
         "",
-        f"**Verdict**: {verdict.verdict_summary}",
+        f"**{_t('Verdict')}**: {verdict.verdict_summary}",
     ]
     if verdict.price_target is not None:
-        parts += ["", f"**Price Target**: {verdict.price_target}"]
+        parts += ["", f"**{_t('Price Target')}**: {verdict.price_target}"]
     if verdict.time_horizon:
-        parts += ["", f"**Time Horizon**: {verdict.time_horizon}"]
+        parts += ["", f"**{_t('Time Horizon')}**: {verdict.time_horizon}"]
     return "\n".join(parts)
 
 

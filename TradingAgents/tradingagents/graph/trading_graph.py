@@ -68,7 +68,7 @@ class TradingAgentsGraph:
 
     def __init__(
         self,
-        selected_analysts=["market", "social", "news", "fundamentals"],
+        selected_analysts=["market", "social", "news", "fundamentals", "smart_money", "macro"],
         debug=False,
         config: Dict[str, Any] = None,
         callbacks: Optional[List] = None,
@@ -84,17 +84,22 @@ class TradingAgentsGraph:
         os.makedirs(self.config["results_dir"], exist_ok=True)
 
         provider = str(self.config.get("llm_provider", "deepseek")).lower()
+        # A guest's own key (threaded through config by the webapp); None falls
+        # back to the provider's env var inside create_model_client.
+        api_key = self.config.get("llm_api_key")
 
         # quick_think -> tool-capable chat model; deep_think -> reasoning model.
         self.chat_client = create_model_client(
             self.config["quick_think_llm"],
             provider=provider,
             base_url=self.config.get("backend_url"),
+            api_key=api_key,
         )
         self.deep_client = create_model_client(
             self.config["deep_think_llm"],
             provider=provider,
             base_url=self.config.get("backend_url"),
+            api_key=api_key,
         )
 
         self.memory_log = TradingMemoryLog(self.config)

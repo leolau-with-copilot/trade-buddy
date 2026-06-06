@@ -87,8 +87,55 @@ def get_global_news(
 
 
 def get_insider_transactions(ticker: str) -> str:
-    """Retrieve recent insider-transaction activity for ``ticker``."""
+    """Retrieve recent corporate insider (SEC Form 4) transactions for ``ticker``.
+
+    Officer/director and 10%-owner ('whale') open-market buys and sells, via
+    OpenInsider. Cluster buying by several insiders is a strong bullish tell.
+    """
     return route_to_vendor("get_insider_transactions", ticker)
+
+
+def get_institutional_holders(ticker: str) -> str:
+    """Institutional 13F ('whale') holders and ownership breakdown for a ticker."""
+    return route_to_vendor("get_institutional_holders", ticker)
+
+
+def get_congress_trading(ticker: str) -> str:
+    """Retrieve disclosed U.S. House + Senate (congressional) trades in ``ticker``.
+
+    A slow, directional 'smart money' signal from STOCK Act disclosures:
+    politicians' personal trades, reported as amount ranges and disclosed up to
+    ~45 days after the trade.
+    """
+    return route_to_vendor("get_congress_trading", ticker)
+
+
+def get_economic_indicator(
+    indicator: str, start_date: str = "", end_date: str = ""
+) -> str:
+    """Retrieve a macro-economic time series (FRED).
+
+    ``indicator`` is a friendly alias (e.g. 'unemployment', 'cpi', 'core_pce',
+    'fed_funds', '10y_treasury', '10y_2y_spread', 'vix', 'wti_oil',
+    'ecb_deposit_rate') or a raw FRED series id. Returns the latest value, the
+    period change, and a short recent history.
+    """
+    return route_to_vendor("get_economic_indicator", indicator, start_date, end_date)
+
+
+def get_macro_snapshot(curr_date: str = "") -> str:
+    """Retrieve a one-call snapshot of the key macro basket (rates, inflation,
+    growth, labor, risk) — a fast macro backdrop as of ``curr_date``."""
+    return route_to_vendor("get_macro_snapshot", curr_date)
+
+
+def get_sec_filings(ticker: str, form_type: str = "", limit: int = 20) -> str:
+    """Retrieve recent SEC EDGAR filings for a US-listed ``ticker``.
+
+    Optionally filter by ``form_type`` ('10-K', '10-Q', '8-K', …). Each entry
+    includes the form, filing/report dates, and a direct primary-document URL.
+    """
+    return route_to_vendor("get_sec_filings", ticker, form_type, limit)
 
 
 # --- FunctionTool wrappers ---------------------------------------------------
@@ -115,7 +162,23 @@ get_income_statement_tool = _tool(
 get_news_tool = _tool(get_news, "Get news for a ticker over a date range.")
 get_global_news_tool = _tool(get_global_news, "Get global macro/world news.")
 get_insider_transactions_tool = _tool(
-    get_insider_transactions, "Get insider-transaction activity for a ticker."
+    get_insider_transactions, "Get corporate insider (SEC Form 4) transactions for a ticker."
+)
+get_congress_trading_tool = _tool(
+    get_congress_trading, "Get U.S. congressional (House + Senate) trades in a ticker."
+)
+get_institutional_holders_tool = _tool(
+    get_institutional_holders,
+    "Get institutional 13F ('whale') holders and ownership breakdown for a ticker.",
+)
+get_economic_indicator_tool = _tool(
+    get_economic_indicator, "Get a macro-economic indicator time series (FRED)."
+)
+get_macro_snapshot_tool = _tool(
+    get_macro_snapshot, "Get a one-call snapshot of key macro indicators."
+)
+get_sec_filings_tool = _tool(
+    get_sec_filings, "Get recent SEC EDGAR filings for a US-listed ticker."
 )
 
 
@@ -128,12 +191,27 @@ def analyst_tools(analyst_key: str) -> List[FunctionTool]:
     mapping = {
         "market": [get_stock_data_tool, get_indicators_tool],
         "social": [get_news_tool],
-        "news": [get_news_tool, get_global_news_tool, get_insider_transactions_tool],
+        "news": [
+            get_news_tool,
+            get_global_news_tool,
+        ],
         "fundamentals": [
             get_fundamentals_tool,
             get_balance_sheet_tool,
             get_cashflow_tool,
             get_income_statement_tool,
+            get_sec_filings_tool,
+            get_institutional_holders_tool,
+        ],
+        "smart_money": [
+            get_insider_transactions_tool,
+            get_congress_trading_tool,
+            get_institutional_holders_tool,
+        ],
+        "macro": [
+            get_macro_snapshot_tool,
+            get_economic_indicator_tool,
+            get_global_news_tool,
         ],
     }
     return mapping[analyst_key]

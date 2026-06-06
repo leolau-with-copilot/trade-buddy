@@ -52,6 +52,8 @@ class MessageBuffer:
         "social": "Sentiment Analyst",
         "news": "News Analyst",
         "fundamentals": "Fundamentals Analyst",
+        "smart_money": "Smart-Money Analyst",
+        "macro": "Macro Analyst",
     }
 
     # Report section mapping: section -> (analyst_key for filtering, finalizing_agent)
@@ -62,6 +64,8 @@ class MessageBuffer:
         "sentiment_report": ("social", "Sentiment Analyst"),
         "news_report": ("news", "News Analyst"),
         "fundamentals_report": ("fundamentals", "Fundamentals Analyst"),
+        "smart_money_report": ("smart_money", "Smart-Money Analyst"),
+        "macro_report": ("macro", "Macro Analyst"),
         "bull_case_md": (None, "Bull Researcher"),
         "bear_case_md": (None, "Bear Researcher"),
         # debate_md is finalised by the Judge; it is listed before
@@ -165,6 +169,18 @@ class MessageBuffer:
             self.report_sections[section_name] = content
             self._update_current_report()
 
+    def stash_debate_section(self):
+        """Store the accumulated debate transcript for the final report only.
+
+        Unlike :meth:`update_report_section`, this does NOT recompute
+        ``current_report`` — the live panel shows just the current turn (set by
+        the caller) so rounds visibly advance, while the full transcript is still
+        rebuilt into the final report.
+        """
+        if "debate_md" in self.report_sections:
+            self.report_sections["debate_md"] = self.debate_md
+        self._update_final_report()
+
     def _update_current_report(self):
         # For the panel display, only show the most recently updated section
         latest_section = None
@@ -183,6 +199,8 @@ class MessageBuffer:
                 "sentiment_report": "Social Sentiment",
                 "news_report": "News Analysis",
                 "fundamentals_report": "Fundamentals Analysis",
+                "smart_money_report": "Smart-Money Flow",
+                "macro_report": "Macro Backdrop",
                 "bull_case_md": "Bull Researcher (Tree-of-Thoughts)",
                 "bear_case_md": "Bear Researcher (Tree-of-Thoughts)",
                 "debate_md": "Bull vs. Bear Debate",
@@ -199,7 +217,7 @@ class MessageBuffer:
         report_parts = []
 
         # Analyst Team Reports - use .get() to handle missing sections
-        analyst_sections = ["market_report", "sentiment_report", "news_report", "fundamentals_report"]
+        analyst_sections = ["market_report", "sentiment_report", "news_report", "fundamentals_report", "smart_money_report", "macro_report"]
         if any(self.report_sections.get(section) for section in analyst_sections):
             report_parts.append("## Analyst Team Reports")
             if self.report_sections.get("market_report"):
@@ -217,6 +235,14 @@ class MessageBuffer:
             if self.report_sections.get("fundamentals_report"):
                 report_parts.append(
                     f"### Fundamentals Analysis\n{self.report_sections['fundamentals_report']}"
+                )
+            if self.report_sections.get("smart_money_report"):
+                report_parts.append(
+                    f"### Smart-Money Flow\n{self.report_sections['smart_money_report']}"
+                )
+            if self.report_sections.get("macro_report"):
+                report_parts.append(
+                    f"### Macro Backdrop\n{self.report_sections['macro_report']}"
                 )
 
         # Research Debate (Tree-of-Thoughts bull/bear)
@@ -438,6 +464,8 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
             "Sentiment Analyst",
             "News Analyst",
             "Fundamentals Analyst",
+            "Smart-Money Analyst",
+            "Macro Analyst",
         ],
         "Research Debate": ["Bull Researcher", "Bear Researcher"],
         "Judgment": ["Judge"],
@@ -802,6 +830,14 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
         analysts_dir.mkdir(exist_ok=True)
         (analysts_dir / "fundamentals.md").write_text(final_state["fundamentals_report"], encoding="utf-8")
         analyst_parts.append(("Fundamentals Analyst", final_state["fundamentals_report"]))
+    if final_state.get("smart_money_report"):
+        analysts_dir.mkdir(exist_ok=True)
+        (analysts_dir / "smart_money.md").write_text(final_state["smart_money_report"], encoding="utf-8")
+        analyst_parts.append(("Smart-Money Analyst", final_state["smart_money_report"]))
+    if final_state.get("macro_report"):
+        analysts_dir.mkdir(exist_ok=True)
+        (analysts_dir / "macro.md").write_text(final_state["macro_report"], encoding="utf-8")
+        analyst_parts.append(("Macro Analyst", final_state["macro_report"]))
     if analyst_parts:
         content = "\n\n".join(f"### {name}\n{text}" for name, text in analyst_parts)
         sections.append(f"## I. Analyst Team Reports\n\n{content}")
@@ -856,6 +892,10 @@ def display_complete_report(final_state):
         analysts.append(("News Analyst", final_state["news_report"]))
     if final_state.get("fundamentals_report"):
         analysts.append(("Fundamentals Analyst", final_state["fundamentals_report"]))
+    if final_state.get("smart_money_report"):
+        analysts.append(("Smart-Money Analyst", final_state["smart_money_report"]))
+    if final_state.get("macro_report"):
+        analysts.append(("Macro Analyst", final_state["macro_report"]))
     if analysts:
         console.print(Panel("[bold]I. Analyst Team Reports[/bold]", border_style="cyan"))
         for title, content in analysts:
@@ -890,7 +930,7 @@ def update_research_team_status(status):
 
 
 # Ordered list of analysts for status transitions
-ANALYST_ORDER = ["market", "social", "news", "fundamentals"]
+ANALYST_ORDER = ["market", "social", "news", "fundamentals", "smart_money", "macro"]
 
 
 def format_tool_args(args, max_length=80) -> str:
@@ -975,7 +1015,11 @@ def run_analysis():
                 message_buffer.tokens_out = meta.get("tokens_out", message_buffer.tokens_out)
                 return
             if status == "debate":
-                # One alternating debate turn; show it live and accumulate it.
+                # One alternating debate turn. Accumulate the full transcript for
+                # the final report, but show only the *current* turn live so the
+                # window visibly advances through rounds 1→2→3. (Routing the whole
+                # growing transcript to the fixed-height panel made Rich clip the
+                # overflow, leaving round 1 pinned at the top.)
                 side = meta.get("side", "?").title()
                 rnd, rounds = meta.get("round", "?"), meta.get("rounds", "?")
                 message_buffer.add_message(
@@ -983,7 +1027,10 @@ def run_analysis():
                 )
                 if content:
                     message_buffer.debate_md += (("\n\n" if message_buffer.debate_md else "") + content)
-                    message_buffer.update_report_section("debate_md", message_buffer.debate_md)
+                    message_buffer.stash_debate_section()
+                    message_buffer.current_report = (
+                        f"### Bull vs. Bear Debate — {side} Round {rnd}/{rounds}\n{content}"
+                    )
                 return
             if status == "consensus":
                 reached = meta.get("consensus_reached")
@@ -992,7 +1039,8 @@ def run_analysis():
                 )
                 if content:
                     message_buffer.debate_md += (("\n\n" if message_buffer.debate_md else "") + content)
-                    message_buffer.update_report_section("debate_md", message_buffer.debate_md)
+                    message_buffer.stash_debate_section()
+                    message_buffer.current_report = f"### Debate Outcome\n{content}"
                 return
 
             message_buffer.update_agent_status(stage, status)

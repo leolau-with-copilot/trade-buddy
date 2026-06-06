@@ -87,7 +87,17 @@ def test_tool_adapters_schema():
     names = {t.name for t in analyst_tools("market")}
     assert names == {"get_stock_data", "get_indicators"}
     assert {t.name for t in analyst_tools("fundamentals")} == {
-        "get_fundamentals", "get_balance_sheet", "get_cashflow", "get_income_statement"
+        "get_fundamentals", "get_balance_sheet", "get_cashflow",
+        "get_income_statement", "get_sec_filings",
+    }
+    # News analyst gains structured macro tools alongside global/company news.
+    assert {t.name for t in analyst_tools("news")} == {
+        "get_news", "get_global_news",
+        "get_economic_indicator", "get_macro_snapshot",
+    }
+    # Smart-money analyst owns the corporate-insider + congressional feeds.
+    assert {t.name for t in analyst_tools("smart_money")} == {
+        "get_insider_transactions", "get_congress_trading",
     }
 
 

@@ -29,12 +29,19 @@ TurnCb = Optional[Callable[[str, int, str, str], None]]
 
 
 def _shared_evidence(reports: Dict[str, str]) -> str:
-    return "\n\n".join([
+    parts = [
         "Technical/market report:\n" + (reports.get("market_report") or "n/a"),
         "Fundamentals report:\n" + (reports.get("fundamentals_report") or "n/a"),
         "News report:\n" + (reports.get("news_report") or "n/a"),
         "Sentiment report:\n" + (reports.get("sentiment_report") or "n/a"),
-    ])
+    ]
+    if reports.get("smart_money_report"):
+        parts.append("Smart-money flow report (insiders/congress/institutions):\n"
+                     + reports["smart_money_report"])
+    if reports.get("macro_report"):
+        parts.append("Macro backdrop report (rates/inflation/growth/labor/risk):\n"
+                     + reports["macro_report"])
+    return "\n\n".join(parts)
 
 
 async def _speak(

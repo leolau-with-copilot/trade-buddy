@@ -9,14 +9,22 @@ description = "TradingAgents: Multi-Agents LLM Financial Trading Framework"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "akshare>=1.18",
+    "alpaca-py>=0.21",
     "autogen-agentchat>=0.7",
     "autogen-ext[openai]>=0.7",
+    "beautifulsoup4>=4.12",
+    "cryptography>=42.0",
     "ddgs>=9.0",
+    "lxml>=5.0",
     "fastapi>=0.115.0",
     "uvicorn>=0.30.0",
     "backtrader>=1.9.78.123",
+    "finnhub-python>=2.4",
+    "pytrends>=4.9",
     "pandas>=2.3.0",
     "parsel>=1.10.0",
+    "python-dotenv>=1.0.0",
     "pytz>=2025.2",
     "questionary>=2.1.0",
     "redis>=6.2.0",
@@ -35,7 +43,7 @@ tradingagents = "cli.main:app"
 tradingagents-web = "webapp.__main__:main"
 
 [tool.setuptools.packages.find]
-include = ["tradingagents*", "cli*", "webapp*"]
+include = ["tradingagents*", "cli*", "webapp*", "finnlp*", "finvizfinance*"]
 
 [tool.setuptools.package-data]
 cli = ["static/*"]

@@ -217,3 +217,15 @@ __marimo__/
 
 # Cache
 **/data_cache/
+
+# Downloaded Kadoa congressional dataset (read via congress_kadoa_utils; ~89MB)
+congress-trading-monitor-main/
+
+# OpenBB reference checkout — kept locally for cherry-picking patterns, never
+# committed or deployed (see memory: openbb-cherry-pick-not-deploy).
+OpenBB-develop/
+
+# Image working artifacts (source/backup, not served)
+webapp/static/*.bak
+webapp/static/*.raw.png
+webapp/static/*.src.png

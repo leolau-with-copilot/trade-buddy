@@ -4,8 +4,13 @@ All three are OpenAI-compatible, so they share one
 :class:`autogen_ext.models.openai.OpenAIChatCompletionClient` with a per-model
 ``model_info`` (AutoGen requires it for any model it does not recognise):
 
-* **deepseek**   — ``deepseek-reasoner`` (deep reasoning, no tools) and
-  ``deepseek-chat`` (tool-capable). Needs the reasoning_content round-trip.
+* **deepseek**   — the v4 family (``deepseek-v4-flash``, ``deepseek-v4-pro``)
+  plus the legacy v3 models ``deepseek-chat`` (tool-capable) and
+  ``deepseek-reasoner`` (deep reasoning, no tools). The v4 models are BOTH
+  tool-capable and "thinking" (they emit ``reasoning_content``); the
+  reasoning_content round-trip below echoes the thought back as DeepSeek
+  requires, and the chat layer splits the streamed ``<think>…</think>`` out of
+  the answer.
 * **openrouter** — any model id, routed through openrouter.ai.
 * **ollama**     — local/remote models; no API key required.
 
@@ -41,7 +46,12 @@ PROVIDER_API_KEY_ENV = {
     "ollama": None,
 }
 
-# Models with no reliable function calling — never hand them tools.
+# DeepSeek v4 family — tool-capable AND emit reasoning_content. They need the
+# reasoning round-trip but, unlike the v3 reasoner, can be given tools.
+DEEPSEEK_V4_MODELS = ("deepseek-v4-flash", "deepseek-v4-pro")
+
+# Models with no reliable function calling — never hand them tools. The v4
+# models are deliberately NOT here: they support tool calls.
 _NON_TOOL_MODELS = frozenset({"deepseek-reasoner"})
 
 

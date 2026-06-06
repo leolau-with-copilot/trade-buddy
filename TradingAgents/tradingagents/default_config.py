@@ -56,12 +56,14 @@ DEFAULT_CONFIG = _apply_env_overrides({
     # Pending entries are never pruned. None disables rotation entirely.
     "memory_log_max_entries": None,
     # LLM settings. This build targets DeepSeek only (AutoGen 0.4 over DeepSeek's
-    # OpenAI-compatible endpoint). deep_think -> reasoning model (Tree-of-Thoughts
-    # researchers + Judge reasoning); quick_think -> tool-capable chat model
-    # (analysts + Judge tool turns; deepseek-reasoner has no reliable tool calling).
+    # OpenAI-compatible endpoint). deep_think -> the stronger reasoning model
+    # (Tree-of-Thoughts researchers + Judge reasoning); quick_think -> the fast
+    # tool-using model (analysts + Judge tool turns). The v4 family is both
+    # tool-capable and thinking, so both roles use v4 now (v3 ids still work if
+    # set via env: deepseek-reasoner / deepseek-chat).
     "llm_provider": "deepseek",
-    "deep_think_llm": "deepseek-reasoner",
-    "quick_think_llm": "deepseek-chat",
+    "deep_think_llm": "deepseek-v4-pro",
+    "quick_think_llm": "deepseek-v4-flash",
     # When None, each provider's client falls back to its own default endpoint
     # (api.openai.com for OpenAI, generativelanguage.googleapis.com for Gemini, ...).
     # The CLI overrides this per provider when the user picks one. Keeping a
@@ -94,6 +96,11 @@ DEFAULT_CONFIG = _apply_env_overrides({
     "winrate_lookback_years": 3,       # how far back to count signal occurrences
     # SQLite dataset of analyses/scoreboards/outcomes. None => under data_cache_dir.
     "analysis_store_path": None,
+    # Optional local copy of the Kadoa congressional dataset (the downloaded
+    # ``congress-trading-monitor-main/public/data`` folder) used as an offline
+    # fallback when congress.kadoa.com is unreachable. None => auto-detect the
+    # bundled folder near the project root, else live-only.
+    "congress_data_dir": None,
     # News / data fetching parameters
     # Increase for longer lookback strategies or to broaden macro coverage;
     # decrease to reduce token usage in agent prompts.
@@ -111,14 +118,31 @@ DEFAULT_CONFIG = _apply_env_overrides({
     ],
     # Data vendor configuration
     # Category-level configuration (default for all tools in category)
+    # China A-share symbols are auto-routed to AKShare regardless of these
+    # settings (see interface._auto_vendor_override). Set a comma-separated list
+    # like "finnhub,yfinance" to prefer one vendor with another as fallback.
+    # macro_data uses FRED (keyless, or FRED_API_KEY for the API).
     "data_vendors": {
         "core_stock_apis": "yfinance",
         "technical_indicators": "yfinance",
         "fundamental_data": "yfinance",
-        "news_data": "yfinance",
+        # Finnhub first (rich company news when FINNHUB_API_KEY is set), with
+        # yfinance as automatic fallback when Finnhub has no key/coverage.
+        "news_data": "finnhub,yfinance",
+        "macro_data": "fred",
+        "filings": "sec",
+        # "Smart money" flow — see the per-tool overrides below for the source
+        # chains (insider vs. congressional use different vendors).
+        "smart_money": "openinsider",
     },
     # Tool-level configuration (takes precedence over category-level)
     "tool_vendors": {
+        # Corporate insiders: OpenInsider (Form 4 scrape) first, then Finnhub
+        # JSON (needs FINNHUB_API_KEY), then yfinance.
+        "get_insider_transactions": "openinsider,finnhub,yfinance",
+        # Congress: Kadoa open STOCK Act dataset (keyless, live JSON from
+        # congress.kadoa.com, with a local-file fallback).
+        "get_congress_trading": "kadoa",
     },
     # Benchmark for alpha calculation in the reflection layer.
     # ``benchmark_ticker`` (when set) overrides the suffix map for all

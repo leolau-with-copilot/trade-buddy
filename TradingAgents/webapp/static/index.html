@@ -3,126 +3,755 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Trade Buddy — Coordination Console</title>
-  <link rel="stylesheet" href="/static/styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/klinecharts/dist/klinecharts.min.js"></script>
+  <title>Trade Buddy — Dashboard</title>
+  <link rel="stylesheet" href="/static/styles.css?v=57" />
+  <!-- klinecharts pinned to 9.8.x: the version @klinecharts/pro 0.1.1 targets (v10 is a breaking beta) -->
+  <script src="https://cdn.jsdelivr.net/npm/klinecharts@9.8.12/dist/umd/klinecharts.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@klinecharts/pro@0.1.1/dist/klinecharts-pro.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@klinecharts/pro@0.1.1/dist/klinecharts-pro.umd.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">⚡ Trade Buddy <span>coordination console</span></div>
-    <div class="search">
-      <input id="search" type="text" autocomplete="off" spellcheck="false"
-             placeholder="Search a stock or index by name or symbol (e.g. apple, SPY, nvidia)…" />
-      <ul id="suggestions" class="suggestions"></ul>
-    </div>
-  </header>
+<!-- ===================== INVITATION-CODE GATE ===================== -->
+<div id="auth-gate" class="auth-gate">
+  <div class="auth-card">
+    <img src="/static/bull.png?v=7" class="auth-logo" alt="Trade Buddy" />
+    <h1 class="auth-title">Trade Buddy</h1>
+    <p class="auth-sub">Your Faithful Trading Companion</p>
 
-  <!-- TOP: price chart with range tabs -->
-  <section class="chart-card">
-    <div class="chart-head">
-      <div class="quote">
-        <span id="quote-symbol">—</span>
-        <span id="quote-last"></span>
-        <span id="quote-change" class="change"></span>
+    <!-- Step 1 — invitation code -->
+    <form id="auth-code-form" class="auth-form">
+      <label class="auth-label">Invitation code</label>
+      <input id="auth-code" class="auth-input" type="text" placeholder="Enter your invitation code"
+             autocomplete="off" autocapitalize="off" spellcheck="false" />
+      <button type="submit" class="auth-btn">Enter</button>
+      <div id="auth-code-err" class="auth-err"></div>
+    </form>
+
+    <!-- Step 2 — guest supplies their own keys -->
+    <form id="auth-keys-form" class="auth-form" hidden>
+      <p class="auth-keys-intro">You're in as a <b>guest</b>. Add your own API keys to run analyses
+        and paper-trade. Keys are encrypted into your session and never stored on the server.</p>
+      <label class="auth-label">DeepSeek API key <span class="auth-req">required to analyze / chat</span></label>
+      <input id="auth-ds" class="auth-input" type="password" placeholder="sk-…" autocomplete="off" />
+      <label class="auth-label">Alpaca key <span class="auth-opt">optional · paper · for Portfolio</span></label>
+      <input id="auth-ak" class="auth-input" type="password" placeholder="Alpaca API key id" autocomplete="off" />
+      <label class="auth-label">Alpaca secret</label>
+      <input id="auth-as" class="auth-input" type="password" placeholder="Alpaca secret key" autocomplete="off" />
+      <button type="submit" class="auth-btn">Save &amp; continue</button>
+      <button type="button" id="auth-skip" class="auth-link">Skip for now</button>
+      <button type="button" id="auth-keys-close" class="auth-link" hidden>Close</button>
+      <div id="auth-keys-err" class="auth-err"></div>
+    </form>
+  </div>
+</div>
+
+<div class="app">
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar">
+    <div class="logo">
+      <img src="/static/bull.png?v=7" class="logo-img" alt="Trade Buddy" />
+      <div class="logo-text">
+        <span class="logo-name">Trade Buddy</span>
+        <span class="logo-tag">Your Faithful Trading Companion</span>
       </div>
-      <div class="chart-toolbar">
-        <div class="ind-panel">
-          <div class="ind-search-box">
-            <svg class="ind-search-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5"/>
-              <path d="M10 10l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-            <input id="ind-search" type="text" placeholder="Add indicator…" autocomplete="off" spellcheck="false" />
-            <ul id="ind-sug" class="ind-sug"></ul>
+    </div>
+    <div class="nav-head">Trading Portal</div>
+    <nav class="nav">
+      <button class="nav-item active" data-page="dashboard"><span class="ico"><i data-lucide="layout-grid"></i></span>Dashboard</button>
+      <button class="nav-item" data-page="coord"><span class="ico"><i data-lucide="git-merge"></i></span>Agent Coordination</button>
+      <button class="nav-item" data-page="watchlist"><span class="ico"><i data-lucide="star"></i></span>Watchlist</button>
+      <button class="nav-item" data-page="markets"><span class="ico"><i data-lucide="trending-up"></i></span>Markets</button>
+      <button class="nav-item" data-page="screener"><span class="ico"><i data-lucide="search"></i></span>Screener</button>
+      <button class="nav-item" data-page="news"><span class="ico"><i data-lucide="newspaper"></i></span>News</button>
+      <button class="nav-item" data-page="calendar"><span class="ico"><i data-lucide="calendar"></i></span>Calendar</button>
+      <button class="nav-item" data-page="whale"><span class="ico"><i data-lucide="fish"></i></span>Whale Trading</button>
+      <button class="nav-item" data-page="ai"><span class="ico"><i data-lucide="cpu"></i></span>AI Analysis</button>
+      <button class="nav-item" data-page="backtester"><span class="ico"><i data-lucide="history"></i></span>Backtester</button>
+      <button class="nav-item" data-page="alerts"><span class="ico"><i data-lucide="bell"></i></span>Alerts</button>
+      <button class="nav-item" data-page="portfolio"><span class="ico"><i data-lucide="briefcase"></i></span>Portfolio</button>
+      <button class="nav-item" data-page="settings"><span class="ico"><i data-lucide="settings"></i></span>Settings</button>
+    </nav>
+    <div class="acct" id="acct">
+      <span class="acct-tier" id="acct-tier">—</span>
+      <button class="acct-link" id="acct-keys" hidden>API keys</button>
+      <button class="acct-link" id="acct-logout">Sign out</button>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <main class="content">
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="market-filters">
+        <select id="country" title="Country / market"><option value="">🌐 All</option></select>
+        <select id="exchange" title="Stock exchange" disabled><option value="">Exchange</option></select>
+      </div>
+      <div class="search">
+        <input id="search" type="text" autocomplete="off" spellcheck="false"
+               placeholder="Search stocks, indices, news…" />
+        <ul id="suggestions" class="suggestions"></ul>
+      </div>
+      <div class="topbar-actions">
+        <span id="status-pill" class="pill">pick a ticker</span>
+        <span id="elapsed-pill" class="pill" title="Elapsed">⏱ 00:00</span>
+        <span id="token-pill" class="pill" title="Tokens in/out">⬆ 0 · ⬇ 0</span>
+        <button id="run" class="btn-primary" disabled>▸ Run agents</button>
+      </div>
+    </header>
+
+    <!-- ============ DASHBOARD PAGE ============ -->
+    <section class="page active" id="page-dashboard">
+      <div class="dash-grid">
+        <!-- CENTER COLUMN -->
+        <div class="col-center">
+          <!-- QUOTE HEADER -->
+          <div class="quote-card">
+            <div class="quote-id">
+              <div class="quote-symbol-row">
+                <span class="quote-symbol" id="q-symbol">—</span>
+                <button id="q-star" class="star-btn" title="Add to watchlist" hidden>☆</button>
+              </div>
+              <div class="quote-name"><span id="q-name">Pick a ticker to begin</span>
+                <span class="tag" id="q-sector" hidden></span></div>
+            </div>
+            <div class="quote-price">
+              <div class="q-last" id="q-last">—</div>
+              <div class="q-change" id="q-change"></div>
+            </div>
+            <div class="quote-stats" id="q-stats">
+              <div><label>Open</label><span id="q-open">—</span></div>
+              <div><label>High</label><span id="q-high">—</span></div>
+              <div><label>Low</label><span id="q-low">—</span></div>
+              <div><label>Prev Close</label><span id="q-prev">—</span></div>
+              <div><label>Volume</label><span id="q-vol">—</span></div>
+              <div><label>Market Cap</label><span id="q-mcap">—</span></div>
+            </div>
           </div>
-          <div id="active-inds" class="active-inds"></div>
+
+          <!-- CHART — KLineChart Pro (built-in periods, indicators, drawing tools) -->
+          <div class="chart-card chart-card-pro">
+            <div id="tv-chart" class="kline-pro">
+              <p class="dash-empty kline-pro-empty">Pick a ticker to load the interactive chart…</p>
+            </div>
+          </div>
+
+          <!-- ANALYSIS TABS -->
+          <div class="analysis-card">
+            <div class="atabs" id="atabs">
+              <button class="active" data-atab="overview">Overview</button>
+              <button data-atab="fundamentals">Fundamentals</button>
+              <button data-atab="financials">Financials</button>
+              <button data-atab="technicals">Technicals</button>
+            </div>
+
+            <!-- OVERVIEW PANEL (company introduction) -->
+            <div class="atab-panel active" id="atab-overview">
+              <div class="dash-ov-head">
+                <h3 id="dash-ov-name">Company overview</h3>
+                <a class="dash-ov-link" data-goto="coord">Run agent analysis →</a>
+              </div>
+              <div id="dash-overview" class="dash-overview">
+                <p class="dash-empty">Pick a ticker to load the company overview…</p>
+              </div>
+            </div>
+
+            <!-- SIMPLE DATA PANELS -->
+            <div class="atab-panel" id="atab-fundamentals"><div class="data-table" id="fund-table"><p class="dash-empty">Select a ticker to load fundamentals.</p></div></div>
+            <div class="atab-panel" id="atab-financials"><div class="data-table" id="fin-table"><p class="dash-empty">Pick a ticker to load financials…</p></div></div>
+            <div class="atab-panel" id="atab-technicals"><div class="data-table" id="tech-table"><p class="dash-empty">Loading technicals…</p></div></div>
+          </div>
         </div>
-        <div class="ranges" id="ranges">
-          <button data-range="1d">1D</button>
-          <button data-range="5d">5D</button>
-          <button data-range="1w">1W</button>
-          <button data-range="1m">1M</button>
-          <button data-range="3m" class="active">3M</button>
-          <button data-range="6m">6M</button>
-          <button data-range="ytd">YTD</button>
-          <button data-range="1y">1Y</button>
-          <button data-range="5y">5Y</button>
-          <button data-range="max">MAX</button>
-        </div>
+
+        <!-- RIGHT RAIL -->
+        <aside class="col-rail">
+          <div class="rail-card">
+            <div class="rail-head"><h3>Watchlist</h3></div>
+            <div id="wl-list" class="wl-list"><p class="dash-empty">Add a ticker with the ☆ to track it here.</p></div>
+          </div>
+
+          <div class="rail-card">
+            <div class="rail-head"><h3>Quick Overview</h3></div>
+            <div class="ov-grid">
+              <div class="ov-cell"><label>Change (1D)</label><span id="ov-1d" class="ov-val">—</span></div>
+              <div class="ov-cell"><label>Change (5D)</label><span id="ov-5d" class="ov-val">—</span></div>
+              <div class="ov-cell"><label>Change (1M)</label><span id="ov-1m" class="ov-val">—</span></div>
+              <div class="ov-cell"><label>52W High</label><span id="ov-52h" class="ov-val">—</span></div>
+              <div class="ov-cell"><label>52W Low</label><span id="ov-52l" class="ov-val">—</span></div>
+              <div class="ov-cell"><label>P/E Ratio</label><span id="ov-pe" class="ov-val">—</span></div>
+            </div>
+            <div class="ov-range">
+              <label>Day's Range</label>
+              <div class="range-bar"><div class="range-fill" id="ov-range-fill"></div><div class="range-dot" id="ov-range-dot"></div></div>
+              <div class="range-ends"><span id="ov-range-lo">—</span><span id="ov-range-hi">—</span></div>
+            </div>
+          </div>
+
+          <div class="rail-card">
+            <div class="rail-head"><h3>Key Signals</h3></div>
+            <div class="key-signals" id="key-signals">
+              <div id="ks-fund"></div>
+              <div id="ks-tech"><p class="dash-empty">Pick a ticker to compute signals…</p></div>
+            </div>
+          </div>
+
+          <div class="rail-card">
+            <div class="rail-head"><h3>Latest News</h3><button id="tnews-refresh" class="ghost-btn">↻</button></div>
+            <div id="tnews-list" class="news-list compact"><p class="dash-empty">Pick a ticker for news…</p></div>
+          </div>
+        </aside>
       </div>
-    </div>
-    <div id="tv-chart"></div>
-  </section>
-
-  <!-- RUN CONTROLS -->
-  <section class="controls">
-    <label>Provider
-      <select id="provider">
-        <option value="deepseek">DeepSeek</option>
-        <option value="openrouter">OpenRouter</option>
-        <option value="ollama">Ollama</option>
-      </select>
-    </label>
-    <label>Depth
-      <select id="depth">
-        <option value="1">Shallow</option>
-        <option value="3" selected>Medium</option>
-        <option value="5">Deep</option>
-      </select>
-    </label>
-    <label>Language
-      <select id="language">
-        <option value="English" selected>English</option>
-        <option value="Simplified Chinese">中文（简体）</option>
-        <option value="Traditional Chinese">中文（繁體）</option>
-        <option value="French">Français</option>
-      </select>
-    </label>
-    <label class="analysts">Analysts
-      <span>
-        <label><input type="checkbox" value="market" checked />Technical</label>
-        <label><input type="checkbox" value="fundamentals" checked />Fundamentals</label>
-        <label><input type="checkbox" value="news" checked />News</label>
-        <label><input type="checkbox" value="social" checked />Sentiment</label>
-      </span>
-    </label>
-    <button id="run" disabled>Run analysis</button>
-    <span id="status-pill" class="pill">pick a ticker</span>
-    <span id="elapsed-pill" class="pill" title="Elapsed time">⏱ 00:00</span>
-    <span id="token-pill" class="pill" title="Tokens in / out">⬆ 0 · ⬇ 0</span>
-  </section>
-
-  <!-- MAIN: left graph, right output -->
-  <main class="main">
-    <section class="graph-card">
-      <h2>Agent coordination</h2>
-      <svg id="graph" viewBox="0 0 840 600" preserveAspectRatio="xMidYMid meet"></svg>
     </section>
 
-    <section class="output-card">
-      <h2>Agent output</h2>
-      <div id="report-tabs" class="report-tabs"></div>
-      <div id="report-view" class="report-view">
-        <p class="report-empty">Run an analysis to see each agent's report. Use the tabs above to revisit any analyst.</p>
-      </div>
-
-      <div id="debate-panel" class="debate-panel" hidden>
-        <div class="debate-head">
-          <h3>🥊 Bull vs. Bear debate</h3>
-          <span id="debate-status" class="debate-status"></span>
+    <!-- ============ AGENT COORDINATION PAGE ============ -->
+    <section class="page" id="page-coord">
+      <div class="coord-terminal">
+        <!-- HEADER -->
+        <div class="coord-top">
+          <div class="coord-title">
+            <h1>AGENT COORDINATION <span class="coord-tag">AI MARKET DEBATE ENGINE</span></h1>
+            <p class="coord-sub">Analysts collect the data. Bull &amp; Bear argue it. The Judge decides.</p>
+          </div>
+          <div class="coord-run">
+            <div class="coord-symbox">
+              <input id="coord-ticker" type="text" placeholder="Ticker…" autocomplete="off" spellcheck="false" />
+              <ul id="coord-sug" class="ind-sug"></ul>
+            </div>
+            <select id="provider" title="Provider"><option value="deepseek">DeepSeek</option><option value="ollama">Ollama (local)</option></select>
+            <select id="depth" title="Debate depth"><option value="1">Shallow</option><option value="3" selected>Medium</option><option value="5">Deep</option></select>
+            <select id="language" title="Language"><option value="English" selected>English</option><option value="Simplified Chinese">中文（简体）</option><option value="Traditional Chinese">中文（繁體）</option><option value="French">Français</option></select>
+            <span class="coord-live" id="coord-live">● Idle</span>
+          </div>
         </div>
-        <div id="debate" class="debate"></div>
-        <div id="consensus" class="consensus"></div>
-      </div>
 
-      <div id="verdict" class="verdict"></div>
-      <details class="log-wrap"><summary>Activity log</summary>
-        <div id="output" class="output"></div>
-      </details>
+        <div class="coord-analysts-bar">
+          <span class="cab-label">Collectors</span>
+          <label><input type="checkbox" value="market" checked />Technical</label>
+          <label><input type="checkbox" value="fundamentals" checked />Fundamentals</label>
+          <label><input type="checkbox" value="news" checked />News</label>
+          <label><input type="checkbox" value="social" checked />Sentiment</label>
+          <label><input type="checkbox" value="smart_money" checked />Smart Money</label>
+          <label><input type="checkbox" value="macro" checked />Macro</label>
+        </div>
+
+        <!-- MAIN 3-COLUMN -->
+        <div class="coord-main">
+          <!-- LEFT: analyst (data-collector) agents -->
+          <section class="coord-panel coord-agents">
+            <div class="coord-h">DATA COLLECTORS <span class="coord-count" id="coord-agent-count">6</span></div>
+            <div id="coord-agent-list" class="coord-agent-list"></div>
+          </section>
+
+          <!-- CENTER: debate arena + final verdict -->
+          <section class="coord-panel coord-arena">
+            <div class="coord-h">MARKET DEBATE ARENA</div>
+            <div class="arena-vs">
+              <div class="arena-side bull">
+                <img class="arena-animal" src="/static/bull.png?v=7" alt="Bull" />
+                <div class="arena-label">BULL CASE</div>
+                <div class="arena-pct" id="arena-bull-pct">—</div>
+                <div class="arena-cap">CONFIDENCE</div>
+                <ul class="arena-ev" id="arena-bull-ev"></ul>
+              </div>
+              <div class="arena-mid">
+                <div class="arena-vs-badge">VS</div>
+                <div class="arena-intensity">Debate Intensity<br><span id="arena-intensity">—</span></div>
+              </div>
+              <div class="arena-side bear">
+                <img class="arena-animal" src="/static/bear.png?v=3" alt="Bear" />
+                <div class="arena-label">BEAR CASE</div>
+                <div class="arena-pct" id="arena-bear-pct">—</div>
+                <div class="arena-cap">CONFIDENCE</div>
+                <ul class="arena-ev" id="arena-bear-ev"></ul>
+              </div>
+            </div>
+            <div id="verdict" class="verdict arena-verdict"></div>
+          </section>
+
+          <!-- RIGHT: judge's verdict drivers + top evidence -->
+          <section class="coord-panel coord-right">
+            <div class="coord-h">VERDICT DRIVERS <small>Judge's weighting</small></div>
+            <div id="coord-drivers" class="coord-drivers"><p class="dash-empty">The Judge's scoreboard appears here after a run.</p></div>
+            <div class="coord-h">TOP EVIDENCE</div>
+            <div class="coord-evidence">
+              <div class="cev-col bull"><h5>Bullish</h5><ul id="coord-ev-bull"></ul></div>
+              <div class="cev-col bear"><h5>Bearish</h5><ul id="coord-ev-bear"></ul></div>
+            </div>
+          </section>
+        </div>
+
+        <!-- DEBATE FLOW (LIVE) -->
+        <div class="coord-panel coord-flow">
+          <div class="coord-h">DEBATE FLOW (LIVE)</div>
+          <div id="coord-pipeline" class="coord-pipeline"></div>
+          <div id="coord-eventlog" class="coord-eventlog"><p class="dash-empty">Pipeline events stream here during a run.</p></div>
+        </div>
+
+        <!-- READING WINDOW: reports · debate · verdict -->
+        <div class="coord-panel coord-read">
+          <div class="coord-read-tabs" id="coord-read-tabs">
+            <button class="active" data-rtab="reports">Analyst Reports</button>
+            <button data-rtab="debate">Bull vs. Bear Debate</button>
+            <button data-rtab="verdict">Judge Verdict</button>
+            <button class="crt-export-btn" id="coord-export" title="Export report"><i data-lucide="download"></i> Export</button>
+          </div>
+          <div class="crt-panel active" id="crt-reports">
+            <div id="report-tabs" class="report-tabs"></div>
+            <div id="report-view" class="report-view">
+              <p class="report-empty">Run an analysis to see each collector's full report.</p>
+            </div>
+          </div>
+          <div class="crt-panel" id="crt-debate">
+            <div id="debate-panel" class="debate-panel">
+              <div class="debate-head"><h3>🥊 Bull vs. Bear debate</h3><span id="debate-status" class="debate-status"></span></div>
+              <div id="debate" class="debate"></div>
+              <div id="consensus" class="consensus"></div>
+            </div>
+          </div>
+          <div class="crt-panel" id="crt-verdict">
+            <div id="verdict-full" class="verdict"><p class="report-empty">The Judge's full verdict appears here.</p></div>
+          </div>
+          <details class="log-wrap"><summary>Raw activity log</summary><div id="output" class="output"></div></details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ MARKETS PAGE (economy) ============ -->
+    <section class="page" id="page-markets">
+      <div class="gm-terminal">
+        <div class="gm-header">
+          <div class="gm-titlebox">
+            <h2>Global Markets</h2>
+            <span class="gm-sub">Live overview of the world economy <span class="gm-live"><i></i>Live</span></span>
+          </div>
+          <div class="gm-headright"><span id="gm-clock" class="nx-clock">—</span><button id="gm-refresh" class="nx-iconbtn" title="Refresh">↻</button></div>
+        </div>
+
+        <!-- Market regime narrative -->
+        <div class="gm-regime" id="gm-regime"><p class="dash-empty">Loading market regime…</p></div>
+
+        <!-- Heatmap · Indices · Bonds -->
+        <div class="gm-rowB">
+          <div class="gm-panel gm-heatmap-panel">
+            <div class="gm-phead">Global Heatmap <span class="gm-sub2" id="gm-hm-sub">Economic momentum (YoY)</span>
+              <div class="nx-mvtabs" id="gm-hm-metric"><button class="active" data-m="growth">Growth</button><button data-m="inflation">Inflation</button></div>
+            </div>
+            <div id="gm-heatmap" class="gm-heatmap"></div>
+          </div>
+          <div class="gm-panel">
+            <div class="gm-phead">Global Equity Indices</div>
+            <div id="gm-indices" class="gm-indices"><p class="dash-empty">Loading…</p></div>
+          </div>
+          <div class="gm-panel">
+            <div class="gm-phead">Global Bond Yields <span class="gm-sub2">10Y</span></div>
+            <div id="gm-bonds" class="gm-bonds"><p class="dash-empty">Loading…</p></div>
+          </div>
+        </div>
+
+        <!-- Commodities · FX · Risk · Asset-class leaders -->
+        <div class="gm-rowC">
+          <div class="gm-panel"><div class="gm-phead">Commodities</div><div id="gm-commodities" class="gm-list"><p class="dash-empty">Loading…</p></div></div>
+          <div class="gm-panel"><div class="gm-phead">FX Major Pairs</div><div id="gm-fx" class="gm-list"><p class="dash-empty">Loading…</p></div></div>
+          <div class="gm-panel"><div class="gm-phead">Key Risk Indicators</div><div id="gm-risk" class="gm-list"><p class="dash-empty">Loading…</p></div></div>
+          <div class="gm-panel"><div class="gm-phead">Asset-Class Leaders <span class="gm-sub2">YTD</span></div><div id="gm-flows" class="gm-flows"><p class="dash-empty">Loading…</p></div></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============ NEWS PAGE (terminal) ============ -->
+    <section class="page" id="page-news">
+      <div class="nx-terminal">
+        <!-- top bar -->
+        <div class="nx-topbar">
+          <div class="nx-brand">
+            <h2>MARKET NEWS</h2>
+            <span class="nx-live"><i></i>LIVE</span>
+            <span id="nx-clock" class="nx-clock">—</span>
+          </div>
+          <form id="nx-symform" class="nx-symwrap" autocomplete="off">
+            <svg class="nx-search-ico" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="M10 10l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <input id="nx-symbol" class="nx-input" placeholder="Search symbols, topics, or keywords…" autocomplete="off" />
+            <ul id="nx-sug" class="suggestions"></ul>
+          </form>
+          <button id="nx-refresh" class="nx-iconbtn" title="Refresh">↻</button>
+        </div>
+
+        <!-- category tabs -->
+        <div class="nx-cats" id="nx-cats">
+          <button class="active" data-cat="all">ALL NEWS</button>
+          <button data-cat="macro">MACRO</button>
+          <button data-cat="equities">EQUITIES</button>
+          <button data-cat="earnings">EARNINGS</button>
+          <button data-cat="commodities">COMMODITIES</button>
+          <button data-cat="crypto">CRYPTO</button>
+          <button data-cat="central">CENTRAL BANKS</button>
+        </div>
+
+        <!-- top row: breaking · indices · movers -->
+        <div class="nx-row1">
+          <div class="nx-panel nx-breaking-panel">
+            <div class="nx-phead breaking">BREAKING NEWS</div>
+            <div id="nx-breaking" class="nx-breaking"><p class="dash-empty">Loading…</p></div>
+          </div>
+
+          <div class="nx-panel">
+            <div class="nx-phead">MARKET INDICES
+              <div class="nx-ranges" id="nx-idx-range">
+                <button class="active" data-r="1d">1D</button><button data-r="5d">5D</button>
+                <button data-r="1m">1M</button><button data-r="6m">6M</button>
+                <button data-r="ytd">YTD</button><button data-r="1y">1Y</button><button data-r="5y">5Y</button>
+              </div>
+            </div>
+            <div id="nx-indices" class="nx-plot"></div>
+            <div id="nx-idx-legend" class="nx-idx-legend"></div>
+          </div>
+
+          <div class="nx-panel">
+            <div class="nx-phead">TOP MOVERS
+              <div class="nx-mvtabs" id="nx-mv-tabs">
+                <button class="active" data-mv="gainers">GAINERS</button>
+                <button data-mv="losers">LOSERS</button>
+                <button data-mv="active">ACTIVE</button>
+              </div>
+            </div>
+            <div id="nx-movers" class="nx-movers"><p class="dash-empty">Loading…</p></div>
+          </div>
+        </div>
+
+        <!-- bottom row: live tape · sector performance -->
+        <div class="nx-row2">
+          <div class="nx-panel nx-tape-panel">
+            <div class="nx-phead">LIVE NEWS TAPE <span id="nx-scope" class="nx-scope"></span></div>
+            <div class="nx-tape-head"><span>TIME</span><span>IMPACT</span><span>SOURCE</span><span>SYMBOLS</span><span>HEADLINE</span></div>
+            <div id="nx-list" class="nx-tape"><p class="dash-empty">Loading news…</p></div>
+          </div>
+
+          <div class="nx-panel">
+            <div class="nx-phead">SECTOR PERFORMANCE
+              <div class="nx-ranges" id="nx-sec-range">
+                <button class="active" data-r="1d">1D</button><button data-r="5d">1W</button>
+                <button data-r="1m">1M</button><button data-r="6m">3M</button><button data-r="ytd">YTD</button>
+              </div>
+            </div>
+            <div id="nx-sectors" class="nx-sectors"><p class="dash-empty">Loading…</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SMART MONEY PAGE ============ -->
+    <section class="page" id="page-whale">
+      <div class="dash-card whale-card">
+        <div class="dash-head whale-head">
+          <h2>🐋 Whale Trading</h2>
+          <span class="dash-sub">Track the smart money — Congress, insiders, institutions, dark pools &amp; crypto whales</span>
+        </div>
+        <nav class="whale-tabs" id="whale-tabs">
+          <button class="wt-tab active" data-wt="congress"><i data-lucide="landmark"></i>Congress</button>
+          <button class="wt-tab" data-wt="members"><i data-lucide="users"></i>Members</button>
+          <button class="wt-tab" data-wt="insiders"><i data-lucide="briefcase"></i>Insiders</button>
+          <button class="wt-tab" data-wt="options"><i data-lucide="activity"></i>Options Flow</button>
+          <button class="wt-tab" data-wt="darkpool"><i data-lucide="database"></i>Dark Pool</button>
+          <button class="wt-tab" data-wt="investors"><i data-lucide="trending-up"></i>Big Whales</button>
+          <button class="wt-tab" data-wt="heatmap"><i data-lucide="bar-chart-2"></i>Heatmap</button>
+        </nav>
+        <div class="whale-body" id="whale-body"><p class="dash-empty">Loading…</p></div>
+      </div>
+    </section>
+
+    <!-- ============ CALENDAR PAGE (unified month grid) ============ -->
+    <section class="page" id="page-calendar">
+      <div class="dash-card">
+        <div class="dash-head">
+          <h2>📅 Market Calendar</h2>
+          <span class="dash-sub">FOMC, CPI, jobs &amp; GDP releases, earnings and economic events — all in one view</span>
+        </div>
+        <div class="cal-wrap"><p class="dash-empty">Loading…</p></div>
+      </div>
+    </section>
+
+    <!-- ============ AI ANALYSIS PAGE (chat) ============ -->
+    <section class="page" id="page-ai">
+      <div class="ai-workspace">
+        <!-- LEFT: company analysis widgets (OpenBB-style tabbed terminal) -->
+        <div class="ai-data">
+          <div class="ai-data-head">
+            <span class="ai-data-title" id="ai-co-name"><i data-lucide="building-2"></i> Company Analysis</span>
+            <form id="ai-symform" class="ai-symwrap" autocomplete="off">
+              <input id="ai-ticker" class="ai-tickin" placeholder="Ticker (e.g. AAPL)" autocomplete="off" />
+              <ul id="ai-sug" class="suggestions"></ul>
+            </form>
+          </div>
+          <div class="ai-tabs" id="ai-tabs">
+            <button class="active" data-tab="overview">Overview</button>
+            <button data-tab="financials">Financials</button>
+            <button data-tab="technical">Technical Analysis</button>
+            <button data-tab="comparison">Comparison Analysis</button>
+            <button data-tab="ownership">Ownership</button>
+            <button data-tab="calendar">Company Calendar</button>
+            <button data-tab="estimates">Estimates</button>
+          </div>
+          <div class="ai-tabbody" id="ai-tabbody"><p class="dash-empty">Enter a ticker to load company analysis…</p></div>
+        </div>
+
+        <!-- Drag handle: pull left to widen the chat, right to widen the analysis. -->
+        <div class="ai-resizer" id="ai-resizer" title="Drag to resize"><span></span></div>
+
+        <!-- RIGHT: the analyst chat agent -->
+        <div class="dash-card chat-card">
+        <div class="chat-top">
+          <div class="chat-title">
+            <div><h2>TRADE BUDDY ANALYST</h2><span class="dash-sub">Macro &amp; markets · reasons, then cites live data and past analyses</span></div>
+          </div>
+          <div class="chat-actions">
+            <select id="chat-model" class="chat-model" title="Model">
+              <option value="deepseek-v4-flash" selected>DeepSeek v4 Flash</option>
+              <option value="deepseek-v4-pro">DeepSeek v4 Pro</option>
+              <option value="deepseek-chat">DeepSeek Chat (v3)</option>
+              <option value="deepseek-reasoner">DeepSeek Reasoner (v3)</option>
+            </select>
+            <button id="chat-history-btn" class="ghost-btn" title="Past sessions"><i data-lucide="history"></i></button>
+            <button id="chat-new-btn" class="ghost-btn" title="Start a new session"><i data-lucide="plus"></i></button>
+          </div>
+        </div>
+        <ul id="chat-history-panel" class="chat-history-panel hidden"></ul>
+        <div id="chat-log" class="chat-log"></div>
+        <div class="chat-suggest" id="chat-suggest">
+          <button>Is the yield curve inverted?</button>
+          <button>What's the latest CPI print?</button>
+          <button>Summarize today's market news</button>
+        </div>
+        <form id="chat-form" class="chat-input">
+          <div id="chat-attach-list" class="chat-attach-list"></div>
+          <div class="chat-input-row">
+            <button type="button" id="chat-attach-btn" class="chat-attach-btn" title="Attach a text/CSV file"><i data-lucide="paperclip"></i></button>
+            <input type="file" id="chat-file" class="hidden" multiple accept=".txt,.csv,.tsv,.md,.json,.log,.py,.text" />
+            <textarea id="chat-text" rows="1" autocomplete="off" placeholder="Ask the analyst…  (Enter to send · Shift+Enter for a new line)"></textarea>
+            <button type="submit" id="chat-send">Send</button>
+          </div>
+        </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PLACEHOLDER PAGES ============ -->
+    <section class="page" id="page-watchlist">
+      <div class="dash-card">
+        <div class="dash-head"><h2>⭐ Watchlist</h2><span class="dash-sub">Your tracked stocks — click a row to open it</span><button id="wl-refresh" class="ghost-btn">↻</button></div>
+        <div id="wl-table" class="wl-table"><p class="dash-empty">Add stocks with the ☆ next to a ticker.</p></div>
+      </div>
+    </section>
+    <section class="page" id="page-screener"><div class="dash-card placeholder">🔎 Screener — coming soon</div></section>
+    <section class="page" id="page-backtester">
+      <!-- 1. control bar -->
+      <div class="btx-bar">
+        <div class="bt-symwrap">
+          <input id="bt-ticker" class="bt-input" placeholder="Ticker" value="AAPL" autocomplete="off" />
+          <ul id="bt-sug" class="suggestions"></ul>
+        </div>
+        <label class="bt-lab">From <input id="bt-start" class="bt-input" type="date" /></label>
+        <label class="bt-lab">To <input id="bt-end" class="bt-input" type="date" /></label>
+        <label class="bt-lab">Capital <input id="bt-cash" class="bt-input bt-cash" type="number" value="10000" min="100" step="100" /></label>
+        <label class="bt-lab">Bars <select id="bt-interval" class="bt-input">
+          <option value="1m">1 min (≤7d)</option>
+          <option value="5m">5 min (≤60d)</option>
+          <option value="15m">15 min (≤60d)</option>
+          <option value="30m">30 min (≤60d)</option>
+          <option value="1h">1 hour (≤2y)</option>
+          <option value="1d" selected>1 day (full)</option>
+        </select></label>
+        <button id="bt-run" class="bt-run">▶ Run Backtest</button>
+        <span id="bt-status" class="btx-status">Write a strategy and run.</span>
+      </div>
+      <!-- 2. KPI row -->
+      <div id="bt-kpis" class="btx-kpis"></div>
+      <pre id="bt-error" class="bt-error" hidden></pre>
+      <!-- 3. hero equity curve -->
+      <div class="btx-card btx-hero">
+        <div class="btx-card-h"><h3>Equity Curve</h3><span id="bt-eq-legend" class="btx-legend"></span></div>
+        <div id="bt-chart" class="btx-eqchart"><p class="dash-empty">Run a backtest to see the equity curve.</p></div>
+      </div>
+      <!-- 4. drawdown + monthly heatmap -->
+      <div class="btx-row2">
+        <div class="btx-card"><div class="btx-card-h"><h3>Drawdown</h3></div><div id="bt-dd" class="btx-ddchart"></div></div>
+        <div class="btx-card"><div class="btx-card-h"><h3>Monthly Returns (%)</h3></div><div id="bt-monthly" class="btx-monthly"></div></div>
+      </div>
+      <!-- 5. trade log + 6. strategy code -->
+      <div class="btx-row3">
+        <div class="btx-card">
+          <div class="btx-card-h"><h3>Trade Log</h3><span id="bt-tstats" class="btx-tstats"></span></div>
+          <div id="bt-trades" class="btx-tradelog"><p class="dash-empty">No trades yet.</p></div>
+        </div>
+        <div class="btx-card btx-codecard">
+          <div class="btx-card-h"><h3>Strategy Code</h3>
+            <div class="btx-code-actions">
+              <button type="button" id="bt-copy" class="btx-iconbtn">⧉ Copy</button>
+              <button type="button" id="bt-expand" class="btx-iconbtn">⤢ Expand</button>
+            </div>
+          </div>
+          <div class="bt-editor" id="bt-editor">
+            <pre class="bt-highlight" id="bt-highlight" aria-hidden="true"></pre>
+            <textarea id="bt-code" class="bt-code" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+          </div>
+          <div class="bt-hint">Define <code>generate_signals(data)</code> → per-bar position (<b>-1</b> short · <b>0</b> flat · <b>1</b> long). <code>data</code> is a pandas DataFrame (<code>open/high/low/close/volume</code>); <code>pd</code>/<code>np</code> available. Sandboxed.</div>
+        </div>
+      </div>
+      <!-- expanded code editor modal -->
+      <div id="bt-modal" class="bt-modal" hidden>
+        <div class="bt-modal-box">
+          <div class="bt-modal-h"><h3>Strategy Code</h3><button type="button" id="bt-modal-close" class="btx-iconbtn">✕ Close</button></div>
+          <div class="bt-modal-body" id="bt-modal-body"></div>
+        </div>
+      </div>
+    </section>
+    <section class="page" id="page-alerts"><div class="dash-card placeholder">🔔 Alerts — coming soon</div></section>
+    <section class="page" id="page-portfolio">
+      <div id="pf-notice" class="pf-notice" hidden></div>
+      <!-- KPI header -->
+      <div id="pf-kpis" class="btx-kpis"></div>
+      <!-- row 1: performance | order + allocation -->
+      <div class="pf-main">
+        <div class="btx-card pf-perf">
+          <div class="btx-card-h">
+            <div><h3>Portfolio Performance</h3><div id="pf-perf-val" class="pf-perf-val">—</div></div>
+            <div class="pf-range" id="pf-range">
+              <button type="button" data-r="1D">1D</button><button type="button" data-r="1W">1W</button>
+              <button type="button" data-r="1M" class="active">1M</button><button type="button" data-r="3M">3M</button>
+              <button type="button" data-r="1Y">1Y</button><button type="button" data-r="All">All</button>
+            </div>
+          </div>
+          <div id="pf-chart" class="pf-chart"><p class="dash-empty">—</p></div>
+          <div id="pf-perf-sum" class="pf-perf-sum"></div>
+        </div>
+        <div class="pf-side">
+          <div class="btx-card pf-order-card">
+            <div class="btx-card-h"><h3>Place Paper Order</h3></div>
+            <div class="pf-form">
+              <div class="pf-symwrap">
+                <input id="pf-sym" class="bt-input" placeholder="Symbol (e.g. AAPL)" autocomplete="off" />
+                <ul id="pf-sug" class="suggestions"></ul>
+              </div>
+              <input id="pf-qty" class="bt-input" type="number" placeholder="Quantity" min="1" step="1" />
+              <div class="pf-bs"><button type="button" id="pf-buy" class="pf-bs-btn buy active">Buy</button><button type="button" id="pf-sell" class="pf-bs-btn sell">Sell</button></div>
+              <select id="pf-type" class="bt-input"><option value="market">Market</option><option value="limit">Limit</option></select>
+              <input id="pf-limit" class="bt-input" type="number" placeholder="Limit price" step="0.01" hidden />
+              <button id="pf-submit" class="bt-run">Submit Order</button>
+            </div>
+            <div id="pf-order-msg" class="pf-msg"></div>
+            <p class="pf-disclaimer">⚠️ Paper trading only — simulated money via Alpaca.</p>
+          </div>
+          <div class="btx-card">
+            <div class="btx-card-h"><h3>Asset Allocation</h3></div>
+            <div id="pf-alloc" class="pf-alloc"><p class="dash-empty">—</p></div>
+          </div>
+        </div>
+      </div>
+      <!-- row 2: positions | recent orders -->
+      <div class="pf-main">
+        <div class="btx-card">
+          <div class="btx-card-h"><h3>Positions</h3><button id="pf-refresh" class="btx-iconbtn">↻ Refresh</button></div>
+          <div id="pf-positions" class="pf-positions"><p class="dash-empty">—</p></div>
+        </div>
+        <div class="btx-card">
+          <div class="btx-card-h"><h3>Recent Orders</h3></div>
+          <div id="pf-orders" class="pf-orders"><p class="dash-empty">—</p></div>
+        </div>
+      </div>
+    </section>
+    <section class="page" id="page-settings">
+      <div class="settings-wrap">
+        <h2 class="settings-h" data-i18n="Settings">Settings</h2>
+
+        <div class="settings-card">
+          <div class="settings-row">
+            <div class="settings-label">
+              <div class="settings-name" data-i18n="Appearance">Appearance</div>
+              <div class="settings-desc" data-i18n="Choose a dark or light interface theme.">Choose a dark or light interface theme.</div>
+            </div>
+            <div class="theme-toggle" id="theme-toggle" role="group" aria-label="Theme">
+              <button class="theme-opt" data-theme-val="dark" data-i18n="Dark">Dark</button>
+              <button class="theme-opt" data-theme-val="light" data-i18n="Light">Light</button>
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <div class="settings-label">
+              <div class="settings-name" data-i18n="Language">Language</div>
+              <div class="settings-desc" data-i18n="Language of the interface and, by default, agent reports.">Language of the interface and, by default, agent reports.</div>
+            </div>
+            <select id="ui-language" class="settings-select">
+              <option value="English">English</option>
+              <option value="Simplified Chinese">中文（简体）</option>
+              <option value="Traditional Chinese">中文（繁體）</option>
+              <option value="French">Français</option>
+            </select>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
+</div>
 
-  <script src="/static/app.js"></script>
+  <!-- Economy indicator chart modal -->
+  <div id="econ-modal" class="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <div><div class="modal-title" id="em-title">—</div><div class="modal-sub" id="em-sub"></div></div>
+        <button id="em-close" class="ghost-btn">✕</button>
+      </div>
+      <div class="modal-stat"><span class="em-val" id="em-val">—</span><span class="em-chg" id="em-chg"></span></div>
+      <div class="em-ranges" id="em-ranges">
+        <button data-days="30">1M</button>
+        <button data-days="91">3M</button>
+        <button data-days="182">6M</button>
+        <button data-days="365" class="active">1Y</button>
+        <button data-days="1095">3Y</button>
+        <button data-days="1826">5Y</button>
+        <button data-days="3652">10Y</button>
+        <button data-days="0">MAX</button>
+      </div>
+      <div id="em-chart"></div>
+    </div>
+  </div>
+
+  <!-- Export report modal: pick a section, preview, download .md or save as PDF -->
+  <div id="export-modal" class="modal" hidden>
+    <div class="modal-card export-card">
+      <div class="modal-head">
+        <div><div class="modal-title" data-i18n="Export report">Export report</div>
+          <div class="modal-sub" id="export-sub" data-i18n="Tick the sections to export. One = .md or PDF; several = a .zip.">Tick the sections to export. One = .md or PDF; several = a .zip.</div></div>
+        <button id="export-close" class="ghost-btn">✕</button>
+      </div>
+      <div class="export-bar">
+        <div class="export-pick" id="export-pick"></div>
+        <div class="export-actions">
+          <button id="export-md" class="export-dl">⬇ <span data-i18n="Markdown (.md)">Markdown (.md)</span></button>
+          <button id="export-pdf" class="export-dl primary">⬇ <span data-i18n="PDF">PDF</span></button>
+          <button id="export-zip" class="export-dl" hidden>⬇ <span data-i18n="ZIP (.zip)">ZIP (.zip)</span></button>
+        </div>
+      </div>
+      <div id="export-preview" class="export-preview report-body"></div>
+    </div>
+  </div>
+
+  <script>
+    // Guard: the app only works when served by the backend. Opening the HTML as
+    // a file:// (or through an IDE preview) makes /static and /api 404, leaving
+    // an unstyled, non-functional page. Show clear instructions instead.
+    if (location.protocol === "file:") {
+      document.documentElement.innerHTML =
+        '<body style="font:16px/1.6 -apple-system,sans-serif;background:#0a1022;color:#e6edf3;padding:48px;max-width:680px;margin:auto">'
+        + '<h1>⚡ Trade Buddy needs the server</h1>'
+        + '<p>You\'ve opened this file directly, so the styles, charts, and data can\'t load.</p>'
+        + '<p>Run the server and open it in your browser instead:</p>'
+        + '<pre style="background:#161e30;padding:16px;border-radius:10px;overflow:auto">cd TradingAgents\npython -m webapp</pre>'
+        + '<p>then visit <a style="color:#58a6ff" href="http://127.0.0.1:8000">http://127.0.0.1:8000</a></p>'
+        + '</body>';
+    }
+  </script>
+  <script src="/static/app.js?v=57"></script>
 </body>
 </html>

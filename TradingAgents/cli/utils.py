@@ -28,7 +28,12 @@ ANALYST_ORDER = [
     ("Sentiment Analyst", AnalystType.SOCIAL),
     ("News Analyst", AnalystType.NEWS),
     ("Fundamentals Analyst", AnalystType.FUNDAMENTALS),
+    ("Smart-Money Analyst", AnalystType.SMART_MONEY),
+    ("Macro Analyst", AnalystType.MACRO),
 ]
+
+# Analysts that only make sense for equities (no crypto data source).
+_EQUITY_ONLY_ANALYSTS = (AnalystType.FUNDAMENTALS, AnalystType.SMART_MONEY)
 
 CRYPTO_SUFFIXES = ("-USD", "-USDT", "-USDC", "-BTC", "-ETH")
 
@@ -73,7 +78,7 @@ def filter_analysts_for_asset_type(
     return [
         analyst
         for analyst in analysts
-        if analyst != AnalystType.FUNDAMENTALS
+        if analyst not in _EQUITY_ONLY_ANALYSTS
     ]
 
 

@@ -61,7 +61,8 @@ def _judge_system(ctx: RunContext) -> str:
         f"lookup_past_analyses for this system's track record, and web_search for "
         f"external corroboration.\n"
         f"3. BUILD A SCOREBOARD: for each metric that matters (momentum, trend, "
-        f"valuation, growth, sentiment, news, technical intuition, past records), set a "
+        f"valuation, growth, sentiment, news, smart-money flow (insider/congress), "
+        f"technical intuition, past records), set a "
         f"source, the raw value/finding, a weight (0-1, your judgement of importance), "
         f"and a signed score (-1 bearish to +1 bullish).\n"
         f"4. Set weighted_score to the weight-normalised sum of the scores, then pick a "
@@ -83,11 +84,23 @@ def _judge_task(
             f"but still decide for yourself; if it did not, resolve the remaining "
             f"disagreements yourself. You are the final authority either way.\n\n"
         )
+    smart_money = reports.get("smart_money_report")
+    smart_money_section = (
+        f"## Smart-money flow report (insiders / congress / institutions)\n{smart_money}\n\n"
+        if smart_money else ""
+    )
+    macro = reports.get("macro_report")
+    macro_section = (
+        f"## Macro backdrop report (rates / inflation / growth / labor / risk)\n{macro}\n\n"
+        if macro else ""
+    )
     return (
         f"## Technical / market report\n{reports.get('market_report') or 'n/a'}\n\n"
         f"## Fundamentals report\n{reports.get('fundamentals_report') or 'n/a'}\n\n"
         f"## News report\n{reports.get('news_report') or 'n/a'}\n\n"
         f"## Sentiment report\n{reports.get('sentiment_report') or 'n/a'}\n\n"
+        f"{smart_money_section}"
+        f"{macro_section}"
         f"## Bull case\n{bull_md}\n\n"
         f"## Bear case\n{bear_md}\n\n"
         f"{debate_section}"
